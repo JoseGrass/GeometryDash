@@ -1,21 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-// Geometry Dash - like single-file React component
-// Default export a React component so it can be dropped into a React app (Vite / CRA).
-// Includes a small amount of CSS injected at runtime so you have a single file to copy.
-
 export default function App() {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
   const lastTimeRef = useRef(0);
+
   const [running, setRunning] = useState(false);
   const [score, setScore] = useState(0);
   const [high, setHigh] = useState(() => Number(localStorage.getItem('gd_like_high') || 0));
-  const [status, setStatus] = useState('tap to start');
+  const [status, setStatus] = useState('Tap / Space to start');
 
-  // Game state
   const stateRef = useRef({
-    width: 360, // logical canvas size (will scale to device)
+    width: 360,
     height: 640,
     scale: 1,
     player: {
@@ -36,14 +32,14 @@ export default function App() {
     dead: false,
   });
 
-  // Inject minimal CSS (mobile-first) once
+  // Inject CSS
   useEffect(() => {
     const css = `
       .gd-root{ display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:linear-gradient(#0f172a,#0b1220); color:#fff; }
       .gd-wrap{ width:100%; max-width:420px; padding:8px; box-sizing:border-box; }
       .gd-canvas{ width:100%; height:calc(100vh - 120px); background: linear-gradient(180deg,#081122,#071226); border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,0.6); touch-action: manipulation; }
       .gd-hud{ display:flex; justify-content:space-between; align-items:center; margin-top:10px; gap:8px; }
-      .gd-btn{ background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.06); padding:8px 12px; border-radius:10px; font-weight:600; }
+      .gd-btn{ background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.06); padding:8px 12px; border-radius:10px; font-weight:600; cursor:pointer; }
       .gd-status{ text-align:center; margin-top:6px; font-size:14px; opacity:0.9 }
       @media(min-width:420px){ .gd-canvas{ height:640px } }
     `;
@@ -55,7 +51,7 @@ export default function App() {
     }
   }, []);
 
-  // Resize canvas to fit container while keeping logical resolution
+  // Resize canvas
   useEffect(() => {
     const resize = () => {
       const canvas = canvasRef.current;
@@ -64,7 +60,6 @@ export default function App() {
       const rect = parent.getBoundingClientRect();
       const logicalW = stateRef.current.width;
       const logicalH = stateRef.current.height;
-      // Compute scale to fit parent width and maintain aspect
       const scale = Math.min(rect.width / logicalW, rect.height / logicalH);
       stateRef.current.scale = scale;
       canvas.width = Math.round(logicalW * devicePixelRatio);
@@ -93,7 +88,6 @@ export default function App() {
         w: 28 + Math.random() * 30,
         h: h,
       });
-      // gradually reduce interval to increase difficulty
       stateRef.current.spawnInterval = Math.max(0.6, stateRef.current.spawnInterval - 0.02);
     }
 
@@ -102,6 +96,7 @@ export default function App() {
       const dt = Math.min((ts - lastTimeRef.current) / 1000, 0.033);
       lastTimeRef.current = ts;
       const s = stateRef.current;
+
       if (running && !s.dead) {
         s.time += dt;
         // physics
@@ -112,9 +107,7 @@ export default function App() {
           s.player.y = ground;
           s.player.vy = 0;
           s.player.grounded = true;
-        } else {
-          s.player.grounded = false;
-        }
+        } else s.player.grounded = false;
 
         // move obstacles
         for (let i = s.obstacles.length - 1; i >= 0; i--) {
@@ -130,19 +123,13 @@ export default function App() {
         }
 
         // collision
-        const playerBox = {
-          x: s.player.x - s.player.w / 2,
-          y: s.player.y - s.player.h / 2,
-          w: s.player.w,
-          h: s.player.h,
-        };
+        const playerBox = { x: s.player.x - s.player.w / 2, y: s.player.y - s.player.h / 2, w: s.player.w, h: s.player.h };
         for (const o of s.obstacles) {
           const obsBox = { x: o.x, y: o.y, w: o.w, h: o.h };
           if (rectOverlap(playerBox, obsBox)) {
             s.dead = true;
-            setStatus('dead — tap to restart');
+            setStatus('Dead — tap to restart');
             setRunning(false);
-            // update high score
             const sc = Math.floor(s.time * 10);
             setScore(sc);
             if (sc > high) {
@@ -153,21 +140,16 @@ export default function App() {
           }
         }
 
-        // increase speed slowly
         s.speed += 5 * dt;
-        // update score live
         setScore(Math.floor(s.time * 10));
       }
 
-      // render
       render(ctx);
       rafRef.current = requestAnimationFrame(step);
     }
 
     rafRef.current = requestAnimationFrame(step);
-    return () => {
-      cancelAnimationFrame(rafRef.current);
-    };
+    return () => cancelAnimationFrame(rafRef.current);
   }, [running, high]);
 
   function rectOverlap(a, b) {
@@ -176,10 +158,9 @@ export default function App() {
 
   function render(ctx) {
     const s = stateRef.current;
-    // clear
     ctx.clearRect(0, 0, s.width, s.height);
 
-    // background grid / parallax
+    // background
     const grad = ctx.createLinearGradient(0, 0, 0, s.height);
     grad.addColorStop(0, '#07132a');
     grad.addColorStop(1, '#04111f');
@@ -194,34 +175,30 @@ export default function App() {
     ctx.save();
     for (const o of s.obstacles) {
       drawRoundedRect(ctx, o.x, o.y, o.w, o.h, 6);
-      // simple highlight
       ctx.fillStyle = '#ff6b6b';
       ctx.fill();
     }
     ctx.restore();
 
-    // player (square with small rotation when jumping)
+    // player
     const p = s.player;
     ctx.save();
     const rot = (p.vy / 800) * 0.4;
     ctx.translate(p.x, p.y);
     ctx.rotate(rot);
-    // body
     ctx.fillStyle = '#ffd166';
     ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-    // eye
     ctx.fillStyle = '#223';
     ctx.fillRect(p.w / 8, -p.h / 8, p.w / 6, p.h / 6);
     ctx.restore();
 
-    // hud (score)
+    // hud
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.font = '18px system-ui, Arial';
     ctx.fillText(`Score: ${Math.floor(s.time * 10)}`, 12, 28);
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.fillText(`High: ${high}`, 12, 50);
 
-    // status overlay if not running
     if (!running) {
       ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.fillRect(0, s.height / 2 - 40, s.width, 80);
@@ -243,41 +220,25 @@ export default function App() {
     ctx.closePath();
   }
 
-  // Input: tap or space / click to jump or start
+  // Input
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     function tryJump() {
       const s = stateRef.current;
-      if (s.dead) return; // no jumping when dead
-      if (!running) {
-        // start
-        startRun();
-        return;
-      }
-      // jump if grounded
+      if (s.dead) return;
+      if (!running) { startRun(); return; }
       if (s.player.grounded) {
         s.player.vy = s.jumpVel;
         s.player.grounded = false;
-        // small sound
         beep();
       }
     }
 
-    function onTouch(e) {
-      e.preventDefault();
-      tryJump();
-    }
-    function onClick(e) {
-      tryJump();
-    }
-    function onKey(e) {
-      if (e.code === 'Space' || e.code === 'ArrowUp') {
-        e.preventDefault();
-        tryJump();
-      }
-    }
+    const onTouch = e => { e.preventDefault(); tryJump(); };
+    const onClick = () => tryJump();
+    const onKey = e => { if(e.code==='Space'||e.code==='ArrowUp'){ e.preventDefault(); tryJump(); } };
 
     canvas.addEventListener('touchstart', onTouch, { passive: false });
     canvas.addEventListener('mousedown', onClick);
@@ -290,7 +251,6 @@ export default function App() {
   }, [running]);
 
   function startRun() {
-    // reset state but keep high
     const s = stateRef.current;
     s.obstacles = [];
     s.spawnInterval = 1.2;
@@ -307,56 +267,44 @@ export default function App() {
     lastTimeRef.current = 0;
   }
 
-  function restart() {
-    startRun();
-  }
+  function restart() { startRun(); }
 
-  // simple beep using WebAudio for jump
   function beep() {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
       const o = ctx.createOscillator();
       const g = ctx.createGain();
-      o.type = 'sine';
-      o.frequency.value = 440;
-      g.gain.value = 0.04;
-      o.connect(g);
-      g.connect(ctx.destination);
-      o.start();
-      o.stop(ctx.currentTime + 0.08);
-      // close quickly
-      setTimeout(() => ctx.close(), 150);
-    } catch (e) {
-      // ignore audio errors on iOS if not allowed
-    }
+      o.type='sine'; o.frequency.value=440; g.gain.value=0.04;
+      o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.08);
+      setTimeout(()=>ctx.close(),150);
+    } catch(e) {}
   }
 
   return (
     <div className="gd-root">
       <div className="gd-wrap">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>GD — Clone (React)</div>
-          <div style={{ fontSize: 12, opacity: 0.8 }}>Tap / Space to jump</div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
+          <div style={{ fontWeight:700, fontSize:18 }}>GD — Clone (React)</div>
+          <div style={{ fontSize:12, opacity:0.8 }}>Tap / Space to jump</div>
         </div>
 
-        <div style={{ marginTop: 10 }}>
+        <div style={{ marginTop:10 }}>
           <canvas ref={canvasRef} className="gd-canvas" />
         </div>
 
         <div className="gd-hud">
-          <div className="gd-btn" onClick={() => { if (running) { setRunning(false); setStatus('paused — tap to resume'); } else { setStatus(''); setRunning(true); } }}>
-            {running ? 'Pause' : 'Play'}
+          <div className="gd-btn" onClick={()=>{ if(running){ setRunning(false); setStatus('Paused — tap to resume'); } else { setStatus(''); setRunning(true); } }}>
+            {running?'Pause':'Play'}
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             <div className="gd-btn">Score: {score}</div>
             <div className="gd-btn">High: {high}</div>
-            <div className="gd-btn" onClick={() => { restart(); }}>Restart</div>
+            <div className="gd-btn" onClick={()=>restart()}>Restart</div>
           </div>
         </div>
 
         <div className="gd-status">{status}</div>
-
-        <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>Tip: install as a PWA or wrap with Capacitor/Electron to run as a mobile app.</div>
+        <div style={{ marginTop:10, fontSize:12, opacity:0.75 }}>Tip: run on mobile or wrap as PWA/Capacitor app.</div>
       </div>
     </div>
   );
